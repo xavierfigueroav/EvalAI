@@ -82,7 +82,13 @@ from .utils import (
     reorder_submissions_comparator_to_key,
 )
 
+from prometheus_client import Counter
+
 logger = logging.getLogger(__name__)
+
+SUBMISSIONS_IN_QUEUE = Counter(
+    "submissions_in_queue", "Number of submissions in queue."
+)
 
 
 @swagger_auto_schema(
@@ -375,6 +381,7 @@ def challenge_submission(request, challenge_id, challenge_phase_id):
             message["submission_pk"] = submission.id
             # publish message in the queue
             publish_submission_message(message)
+            SUBMISSIONS_IN_QUEUE.inc()
             return Response(response_data, status=status.HTTP_201_CREATED)
         return Response(
             serializer.errors, status=status.HTTP_406_NOT_ACCEPTABLE
@@ -1817,6 +1824,7 @@ def re_run_submission_by_host(request, submission_pk):
 
     message = handle_submission_rerun(submission, Submission.CANCELLED)
     publish_submission_message(message)
+    SUBMISSIONS_IN_QUEUE.inc()
     response_data = {
         "success": "Submission is successfully submitted for re-running"
     }
@@ -2725,5 +2733,6 @@ def send_submission_message(request, challenge_phase_pk, submission_pk):
     }
 
     publish_submission_message(submission_message)
+    SUBMISSIONS_IN_QUEUE.inc()
     response_data = {}
     return Response(response_data, status=status.HTTP_200_OK)
